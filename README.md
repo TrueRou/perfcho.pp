@@ -50,13 +50,15 @@ Application settings use explicit uppercase environment variables with single un
 
 | Environment variable | Description |
 | --- | --- |
-| `CALCULATOR_CODE` | Calculator identity; defaults to `osu-lazer-dotnet` |
-| `FORMULA_CODE` | Supported performance formula code |
-| `RELEASE_VERSION` | Performance release version |
-| `ARTIFACT_DIGEST` | Performance artifact SHA-256 |
-| `DIFFICULTY_FORMULA_CODE` | Supported difficulty formula code |
-| `DIFFICULTY_RELEASE_VERSION` | Difficulty release version |
-| `DIFFICULTY_ARTIFACT_DIGEST` | Difficulty artifact SHA-256 |
+| `CALCULATOR_CODE` | Calculator identity; defaults to `perfcho-pp` |
+| `FORMULA_CODE` | Performance formula code; defaults to `official` |
+| `RELEASE_VERSION` | Performance release version; defaults to `2026.07.1` |
+| `ARTIFACT_DIGEST` | Performance artifact SHA-256 fallback for every ruleset |
+| `ARTIFACT_DIGEST_{OSU,TAIKO,FRUITS,MANIA}` | Optional per-ruleset performance artifact SHA-256 values |
+| `DIFFICULTY_FORMULA_CODE` | Difficulty formula code; defaults to `official-difficulty` |
+| `DIFFICULTY_RELEASE_VERSION` | Difficulty release version; defaults to `2026.07.1-difficulty` |
+| `DIFFICULTY_ARTIFACT_DIGEST` | Difficulty artifact SHA-256 fallback for every ruleset |
+| `DIFFICULTY_ARTIFACT_DIGEST_{OSU,TAIKO,FRUITS,MANIA}` | Optional per-ruleset difficulty artifact SHA-256 values |
 | `MAXIMUM_CONCURRENT_CALCULATIONS` | CPU calculation limit; `0` uses the logical processor count |
 | `CALCULATION_QUEUE_TIMEOUT_MILLISECONDS` | Time to wait for calculation capacity; `0` returns `429` immediately |
 | `CACHE_DIRECTORY` | Content-addressed beatmap cache directory |
@@ -70,7 +72,7 @@ Application settings use explicit uppercase environment variables with single un
 | `REDIS_CONNECTION_STRING` | Optional Redis connection string |
 | `REDIS_INSTANCE_NAME` | Redis key prefix |
 
-The Development configuration contains `a...a` and `d...d` digests for local contract testing only. Production does not provide default artifact digests and refuses to start until valid values are configured. Production releases must use the actual artifact digests registered by the matching perfcho formula releases.
+The Development configuration contains `a...a` and `d...d` digests for local contract testing only. Production does not provide default artifact digests and refuses to start until valid values are configured. When the perfcho Bootstrap catalog is used, configure the four per-ruleset performance and difficulty digests generated for the corresponding active releases. Production releases must use the actual artifact digests registered by the matching perfcho formula releases.
 
 The service does not follow redirects from `beatmap_url`. Production deployments should set `BEATMAP_ALLOWED_HOSTS` and expose the calculator only on an internal network accessible by perfcho workers.
 

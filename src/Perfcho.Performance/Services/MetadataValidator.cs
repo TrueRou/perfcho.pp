@@ -12,7 +12,7 @@ public sealed record ValidatedMetadata(Uri BeatmapUri, double Accuracy, bool IsL
 public sealed class MetadataValidator(IOptions<CalculatorOptions> configured, IOptions<CacheOptions> cacheConfigured)
 {
     private static readonly Regex modAcronym = new("^[A-Z0-9]{1,8}$", RegexOptions.CultureInvariant);
-    private static readonly HashSet<string> rulesets = ["osu", "taiko", "fruits", "mania"];
+    private static readonly HashSet<string> rulesets = new(CalculatorOptions.SupportedRulesets, StringComparer.Ordinal);
     private static readonly HashSet<string> variants = ["vanilla", "relax", "autopilot"];
     private static readonly HashSet<string> clients = ["stable", "lazer", "web", "api"];
     private static readonly HashSet<string> outcomes = ["abandoned", "failed", "passed"];
@@ -35,15 +35,15 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured, IO
         VerifyIdentity(metadata.Calculator, options.Code, "calculator");
         VerifyIdentity(metadata.FormulaCode, options.FormulaCode, "formula_code");
         VerifyIdentity(metadata.ReleaseVersion, options.ReleaseVersion, "release_version");
-        VerifyIdentity(metadata.ArtifactDigest, options.ArtifactDigest, "artifact_digest");
         VerifyIdentity(metadata.DifficultyFormulaCode, options.DifficultyFormulaCode, "difficulty_formula_code");
         VerifyIdentity(metadata.DifficultyReleaseVersion, options.DifficultyReleaseVersion, "difficulty_release_version");
-        VerifyIdentity(metadata.DifficultyArtifactDigest, options.DifficultyArtifactDigest, "difficulty_artifact_digest");
 
         if (!CalculatorOptions.IsDigest(metadata.InputDigest) || !CalculatorOptions.IsDigest(metadata.BeatmapSha256))
             Invalid("input_digest and beatmap_sha256 must be lowercase SHA-256 hex strings.");
         if (metadata.Ruleset is null || !rulesets.Contains(metadata.Ruleset))
             Invalid("ruleset is not supported.");
+        VerifyIdentity(metadata.ArtifactDigest, options.GetArtifactDigest(metadata.Ruleset!), "artifact_digest");
+        VerifyIdentity(metadata.DifficultyArtifactDigest, options.GetDifficultyArtifactDigest(metadata.Ruleset!), "difficulty_artifact_digest");
         if (metadata.Variant is null || !variants.Contains(metadata.Variant))
             Invalid("variant is not supported.");
         if (metadata.ClientFamily is null || !clients.Contains(metadata.ClientFamily))
@@ -72,22 +72,50 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured, IO
         return new ValidatedMetadata(beatmapUri!, accuracy, scoreSystem == "classic");
     }
 
-    private static void ValidateConfigurations(PerformanceMetadata metadata)
+    private void ValidateConfigurations(PerformanceMetadata metadata)
     {
         if (metadata.ReleaseConfiguration is null || metadata.DifficultyReleaseConfiguration is null)
             Invalid("release configurations must be JSON objects.");
-        if (metadata.DifficultyReleaseConfiguration!.HasValues)
-            Invalid("difficulty_release_configuration is not supported by this release.");
 
-        foreach (JProperty property in metadata.ReleaseConfiguration!.Properties())
+        ValidateConfiguration(metadata.ReleaseConfiguration!, "performance", metadata.Ruleset!, "release_configuration");
+        ValidateConfiguration(metadata.DifficultyReleaseConfiguration!, "difficulty", metadata.Ruleset!, "difficulty_release_configuration");
+    }
+
+    private void ValidateConfiguration(JObject configuration, string expectedKind, string ruleset, string name)
+    {
+        foreach (JProperty property in configuration.Properties())
         {
-            if (property.Name != "score_system")
-                Invalid($"Unsupported release_configuration setting: {property.Name}.");
+            switch (property.Name)
+            {
+                case "score_system":
+                    if (property.Value.Type != JTokenType.String || property.Value.Value<string>() is not ("lazer" or "classic"))
+                        Invalid($"{name}.score_system must be lazer or classic.");
+                    break;
+                case "source":
+                    if (property.Value.Type != JTokenType.String || property.Value.Value<string>() != options.FormulaCode)
+                        Invalid($"{name}.source does not match this deployment.");
+                    break;
+                case "calculator":
+                    if (property.Value.Type != JTokenType.String || property.Value.Value<string>() != options.Code)
+                        Invalid($"{name}.calculator does not match this deployment.");
+                    break;
+                case "kind":
+                    if (property.Value.Type != JTokenType.String || property.Value.Value<string>() != expectedKind)
+                        Invalid($"{name}.kind is invalid.");
+                    break;
+                case "ruleset":
+                    if (property.Value.Type != JTokenType.String || property.Value.Value<string>() != ruleset)
+                        Invalid($"{name}.ruleset does not match the requested ruleset.");
+                    break;
+                case "bootstrap_version":
+                    if (property.Value.Type != JTokenType.Integer || property.Value.Value<int>() != 1)
+                        Invalid($"{name}.bootstrap_version is invalid.");
+                    break;
+                default:
+                    Invalid($"Unsupported {name} setting: {property.Name}.");
+                    break;
+            }
         }
-
-        JToken? scoreSystem = metadata.ReleaseConfiguration["score_system"];
-        if (scoreSystem is not null && (scoreSystem.Type != JTokenType.String || scoreSystem.Value<string>() is not ("lazer" or "classic")))
-            Invalid("release_configuration.score_system must be lazer or classic.");
     }
 
     private static void ValidateMods(List<CanonicalMod>? mods)

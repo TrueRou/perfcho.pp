@@ -28,6 +28,7 @@ public sealed class ContractTests
         var environment = new Dictionary<string, string?>
         {
             ["ARTIFACT_DIGEST"] = new string('a', 64),
+            ["ARTIFACT_DIGEST_TAIKO"] = new string('b', 64),
             ["REDIS_CONNECTION_STRING"] = "redis.test:6379",
             ["BEATMAP_ALLOWED_HOSTS"] = "s3.test, minio.test",
             ["Calculator__Code"] = "legacy-name-must-not-bind"
@@ -37,6 +38,7 @@ public sealed class ContractTests
             name => environment.GetValueOrDefault(name));
 
         Assert.Equal(new string('a', 64), mapped["Calculator:ArtifactDigest"]);
+        Assert.Equal(new string('b', 64), mapped["Calculator:ArtifactDigests:taiko"]);
         Assert.Equal("redis.test:6379", mapped["Cache:RedisConnectionString"]);
         Assert.Equal("s3.test", mapped["Cache:AllowedBeatmapHosts:0"]);
         Assert.Equal("minio.test", mapped["Cache:AllowedBeatmapHosts:1"]);
@@ -56,7 +58,7 @@ public sealed class ContractTests
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
 
         using JsonDocument response = JsonDocument.Parse(firstJson);
-        Assert.Equal("osu-lazer-dotnet", response.RootElement.GetProperty("calculator").GetString());
+        Assert.Equal("perfcho-pp", response.RootElement.GetProperty("calculator").GetString());
         Assert.Equal(metadata.Value<string>("input_digest"), response.RootElement.GetProperty("input_digest").GetString());
         Assert.True(decimal.Parse(response.RootElement.GetProperty("difficulty").GetProperty("star_rating").GetString()!) >= 0);
         Assert.True(decimal.Parse(response.RootElement.GetProperty("performance").GetProperty("pp").GetString()!) >= 0);
@@ -96,6 +98,37 @@ public sealed class ContractTests
         JObject metadata = CreateMetadata(beatmap);
         metadata["client_family"] = "stable";
         metadata["release_configuration"] = JObject.FromObject(new { score_system = "classic" });
+
+        using HttpResponseMessage response = await client.PostAsync("/v1/performance/calculate", CreateRequest(metadata));
+        string json = await response.Content.ReadAsStringAsync();
+
+        Assert.True(response.IsSuccessStatusCode, json);
+    }
+
+    [Fact]
+    public async Task Calculate_accepts_bootstrap_release_configurations()
+    {
+        byte[] beatmap = Encoding.UTF8.GetBytes(TestBeatmap);
+        using var factory = new CalculatorFactory(beatmap);
+        using HttpClient client = factory.CreateClient();
+        JObject metadata = CreateMetadata(beatmap);
+        metadata["release_configuration"] = new JObject
+        {
+            ["source"] = "official",
+            ["calculator"] = "perfcho-pp",
+            ["kind"] = "performance",
+            ["ruleset"] = "osu",
+            ["bootstrap_version"] = 1,
+            ["score_system"] = "lazer"
+        };
+        metadata["difficulty_release_configuration"] = new JObject
+        {
+            ["source"] = "official",
+            ["calculator"] = "perfcho-pp",
+            ["kind"] = "difficulty",
+            ["ruleset"] = "osu",
+            ["bootstrap_version"] = 1
+        };
 
         using HttpResponseMessage response = await client.PostAsync("/v1/performance/calculate", CreateRequest(metadata));
         string json = await response.Content.ReadAsStringAsync();
@@ -239,7 +272,7 @@ public sealed class ContractTests
             score_id = 1,
             formula_id = Guid.NewGuid(),
             formula_code = "official",
-            calculator = "osu-lazer-dotnet",
+            calculator = "perfcho-pp",
             release_id = Guid.NewGuid(),
             release_version = "2026.07.1",
             artifact_digest = new string('a', 64),

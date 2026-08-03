@@ -42,9 +42,9 @@ public sealed class PerformanceController(
                 schema_version = 1,
                 calculator = options.Code,
                 release_version = options.ReleaseVersion,
-                artifact_digest = options.ArtifactDigest,
+                artifact_digest = options.GetArtifactDigest(metadata.Ruleset!),
                 difficulty_release_version = options.DifficultyReleaseVersion,
-                difficulty_artifact_digest = options.DifficultyArtifactDigest,
+                difficulty_artifact_digest = options.GetDifficultyArtifactDigest(metadata.Ruleset!),
                 input_digest = metadata.InputDigest,
                 difficulty = new
                 {
