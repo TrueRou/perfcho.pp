@@ -27,8 +27,6 @@ public sealed class ContractTests
     {
         var environment = new Dictionary<string, string?>
         {
-            ["ARTIFACT_DIGEST"] = new string('a', 64),
-            ["ARTIFACT_DIGEST_TAIKO"] = new string('b', 64),
             ["REDIS_CONNECTION_STRING"] = "redis.test:6379",
             ["BEATMAP_ALLOWED_HOSTS"] = "s3.test, minio.test",
             ["Calculator__Code"] = "legacy-name-must-not-bind"
@@ -37,8 +35,6 @@ public sealed class ContractTests
         IReadOnlyDictionary<string, string?> mapped = EnvironmentVariableConfiguration.Build(
             name => environment.GetValueOrDefault(name));
 
-        Assert.Equal(new string('a', 64), mapped["Calculator:ArtifactDigest"]);
-        Assert.Equal(new string('b', 64), mapped["Calculator:ArtifactDigests:taiko"]);
         Assert.Equal("redis.test:6379", mapped["Cache:RedisConnectionString"]);
         Assert.Equal("s3.test", mapped["Cache:AllowedBeatmapHosts:0"]);
         Assert.Equal("minio.test", mapped["Cache:AllowedBeatmapHosts:1"]);
@@ -275,13 +271,11 @@ public sealed class ContractTests
             calculator = "perfcho-pp",
             release_id = Guid.NewGuid(),
             release_version = "2026.07.1",
-            artifact_digest = new string('a', 64),
             release_configuration = new { score_system = "lazer" },
             difficulty_formula_id = Guid.NewGuid(),
             difficulty_formula_code = "official-difficulty",
             difficulty_release_id = Guid.NewGuid(),
             difficulty_release_version = "2026.07.1-difficulty",
-            difficulty_artifact_digest = new string('d', 64),
             difficulty_release_configuration = new { },
             input_digest = new string('1', 64),
             beatmap_revision_id = 1,

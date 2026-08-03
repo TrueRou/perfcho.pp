@@ -194,7 +194,6 @@ public sealed class PerformanceCalculationService(
             metadata.DifficultyFormulaCode,
             metadata.DifficultyReleaseId,
             metadata.DifficultyReleaseVersion,
-            metadata.DifficultyArtifactDigest,
             metadata.Ruleset,
             metadata.Variant,
             canonicalMods);

@@ -35,7 +35,7 @@ The difficulty cache identity includes:
 ```text
 beatmap SHA-256
 osu! package version and DifficultyCalculator.Version
-difficulty formula, release, version, and artifact digest
+difficulty formula, release, and version
 target ruleset and variant
 resolved mod acronyms and all non-default settings
 ```
@@ -53,12 +53,8 @@ Application settings use explicit uppercase environment variables with single un
 | `CALCULATOR_CODE` | Calculator identity; defaults to `perfcho-pp` |
 | `FORMULA_CODE` | Performance formula code; defaults to `official` |
 | `RELEASE_VERSION` | Performance release version; defaults to `2026.07.1` |
-| `ARTIFACT_DIGEST` | Performance artifact SHA-256 fallback for every ruleset |
-| `ARTIFACT_DIGEST_{OSU,TAIKO,FRUITS,MANIA}` | Optional per-ruleset performance artifact SHA-256 values |
 | `DIFFICULTY_FORMULA_CODE` | Difficulty formula code; defaults to `official-difficulty` |
 | `DIFFICULTY_RELEASE_VERSION` | Difficulty release version; defaults to `2026.07.1-difficulty` |
-| `DIFFICULTY_ARTIFACT_DIGEST` | Difficulty artifact SHA-256 fallback for every ruleset |
-| `DIFFICULTY_ARTIFACT_DIGEST_{OSU,TAIKO,FRUITS,MANIA}` | Optional per-ruleset difficulty artifact SHA-256 values |
 | `MAXIMUM_CONCURRENT_CALCULATIONS` | CPU calculation limit; `0` uses the logical processor count |
 | `CALCULATION_QUEUE_TIMEOUT_MILLISECONDS` | Time to wait for calculation capacity; `0` returns `429` immediately |
 | `CACHE_DIRECTORY` | Content-addressed beatmap cache directory |
@@ -72,7 +68,7 @@ Application settings use explicit uppercase environment variables with single un
 | `REDIS_CONNECTION_STRING` | Optional Redis connection string |
 | `REDIS_INSTANCE_NAME` | Redis key prefix |
 
-The Development configuration contains `a...a` and `d...d` digests for local contract testing only. Production does not provide default artifact digests and refuses to start until valid values are configured. When the perfcho Bootstrap catalog is used, configure the four per-ruleset performance and difficulty digests generated for the corresponding active releases. Production releases must use the actual artifact digests registered by the matching perfcho formula releases.
+Release identity is validated by calculator, formula, and release version. Release configuration remains part of the calculation input and cache identity.
 
 The service does not follow redirects from `beatmap_url`. Production deployments should set `BEATMAP_ALLOWED_HOSTS` and expose the calculator only on an internal network accessible by perfcho workers.
 
@@ -98,8 +94,6 @@ REDIS_CONNECTION_STRING=127.0.0.1:6379 \
 ```bash
 docker build -t perfcho-pp .
 docker run --rm -p 6001:6001 \
-  -e ARTIFACT_DIGEST=<sha256> \
-  -e DIFFICULTY_ARTIFACT_DIGEST=<sha256> \
   -e BEATMAP_ALLOWED_HOSTS=minio.internal \
   perfcho-pp
 ```

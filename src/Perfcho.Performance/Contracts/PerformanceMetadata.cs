@@ -14,13 +14,11 @@ public sealed class PerformanceMetadata
     [JsonProperty("calculator", Required = Required.Always)] public string? Calculator { get; init; }
     [JsonProperty("release_id", Required = Required.Always)] public Guid ReleaseId { get; init; }
     [JsonProperty("release_version", Required = Required.Always)] public string? ReleaseVersion { get; init; }
-    [JsonProperty("artifact_digest", Required = Required.Always)] public string? ArtifactDigest { get; init; }
     [JsonProperty("release_configuration", Required = Required.Always)] public JObject? ReleaseConfiguration { get; init; }
     [JsonProperty("difficulty_formula_id", Required = Required.Always)] public Guid DifficultyFormulaId { get; init; }
     [JsonProperty("difficulty_formula_code", Required = Required.Always)] public string? DifficultyFormulaCode { get; init; }
     [JsonProperty("difficulty_release_id", Required = Required.Always)] public Guid DifficultyReleaseId { get; init; }
     [JsonProperty("difficulty_release_version", Required = Required.Always)] public string? DifficultyReleaseVersion { get; init; }
-    [JsonProperty("difficulty_artifact_digest", Required = Required.Always)] public string? DifficultyArtifactDigest { get; init; }
     [JsonProperty("difficulty_release_configuration", Required = Required.Always)] public JObject? DifficultyReleaseConfiguration { get; init; }
     [JsonProperty("input_digest", Required = Required.Always)] public string? InputDigest { get; init; }
     [JsonProperty("beatmap_revision_id", Required = Required.Always)] public long BeatmapRevisionId { get; init; }

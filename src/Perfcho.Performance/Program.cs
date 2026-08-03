@@ -61,10 +61,8 @@ app.MapGet("/v1/capabilities", (Microsoft.Extensions.Options.IOptions<Calculator
         calculator = options.Code,
         formula_code = options.FormulaCode,
         release_version = options.ReleaseVersion,
-        artifact_digest = options.ArtifactDigest,
         difficulty_formula_code = options.DifficultyFormulaCode,
         difficulty_release_version = options.DifficultyReleaseVersion,
-        difficulty_artifact_digest = options.DifficultyArtifactDigest,
         rulesets = new[] { "osu", "taiko", "fruits", "mania" },
         variants = new[] { "vanilla", "relax", "autopilot" },
         osu_package_version = CalculatorOptions.OsuPackageVersion

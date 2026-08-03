@@ -42,8 +42,6 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured, IO
             Invalid("input_digest and beatmap_sha256 must be lowercase SHA-256 hex strings.");
         if (metadata.Ruleset is null || !rulesets.Contains(metadata.Ruleset))
             Invalid("ruleset is not supported.");
-        VerifyIdentity(metadata.ArtifactDigest, options.GetArtifactDigest(metadata.Ruleset!), "artifact_digest");
-        VerifyIdentity(metadata.DifficultyArtifactDigest, options.GetDifficultyArtifactDigest(metadata.Ruleset!), "difficulty_artifact_digest");
         if (metadata.Variant is null || !variants.Contains(metadata.Variant))
             Invalid("variant is not supported.");
         if (metadata.ClientFamily is null || !clients.Contains(metadata.ClientFamily))

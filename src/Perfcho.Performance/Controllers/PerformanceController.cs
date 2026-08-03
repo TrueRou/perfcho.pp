@@ -42,9 +42,7 @@ public sealed class PerformanceController(
                 schema_version = 1,
                 calculator = options.Code,
                 release_version = options.ReleaseVersion,
-                artifact_digest = options.GetArtifactDigest(metadata.Ruleset!),
                 difficulty_release_version = options.DifficultyReleaseVersion,
-                difficulty_artifact_digest = options.GetDifficultyArtifactDigest(metadata.Ruleset!),
                 input_digest = metadata.InputDigest,
                 difficulty = new
                 {
@@ -64,7 +62,7 @@ public sealed class PerformanceController(
             if (exception.StatusCode >= 500)
                 logger.LogError(exception, "Calculation failed for job {JobId}.", metadata?.JobId);
             else
-                logger.LogInformation("Calculation rejected for job {JobId}: {Code}.", metadata?.JobId, exception.Code);
+                logger.LogInformation("Calculation rejected for job {JobId}: {Code}. Reason: {Reason}", metadata?.JobId, exception.Code, exception.Message);
 
             if (exception.StatusCode == StatusCodes.Status429TooManyRequests)
                 Response.Headers.RetryAfter = "1";
