@@ -5,7 +5,8 @@ public sealed class CacheOptions
     public const string SectionName = "Cache";
 
     public string Directory { get; init; } = "cache";
-    public long MemorySizeBytes { get; init; } = 256 * 1024 * 1024;
+    public bool DiskCacheEnabled { get; init; } = false;
+    public long MaximumMemoryCacheBytes { get; init; } = 128 * 1024 * 1024;
     public int MaximumBeatmapBytes { get; init; } = 16 * 1024 * 1024;
     public long MaximumDiskCacheBytes { get; init; } = 5L * 1024 * 1024 * 1024;
     public int MaximumConcurrentBeatmapDownloads { get; init; } = 16;
@@ -18,7 +19,7 @@ public sealed class CacheOptions
     {
         if (string.IsNullOrWhiteSpace(options.Directory))
             throw new InvalidOperationException("Cache directory must be configured.");
-        if (options.MemorySizeBytes < 1024 * 1024 || options.MaximumBeatmapBytes < 1024 ||
+        if (options.MaximumMemoryCacheBytes < 1024 * 1024 || options.MaximumBeatmapBytes < 1024 ||
             options.MaximumDiskCacheBytes < options.MaximumBeatmapBytes ||
             options.MaximumConcurrentBeatmapDownloads < 1 || options.BeatmapDownloadTimeoutSeconds < 1 ||
             options.DifficultyTtlHours < 1)

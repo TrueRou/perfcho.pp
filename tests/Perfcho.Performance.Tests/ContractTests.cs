@@ -28,6 +28,8 @@ public sealed class ContractTests
         var environment = new Dictionary<string, string?>
         {
             ["REDIS_CONNECTION_STRING"] = "redis.test:6379",
+            ["CACHE_DISK_ENABLED"] = "true",
+            ["CACHE_MAXIMUM_MEMORY_CACHE_BYTES"] = "134217728",
             ["BEATMAP_ALLOWED_HOSTS"] = "s3.test, minio.test",
             ["Calculator__Code"] = "legacy-name-must-not-bind"
         };
@@ -36,6 +38,8 @@ public sealed class ContractTests
             name => environment.GetValueOrDefault(name));
 
         Assert.Equal("redis.test:6379", mapped["Cache:RedisConnectionString"]);
+        Assert.Equal("true", mapped["Cache:DiskCacheEnabled"]);
+        Assert.Equal("134217728", mapped["Cache:MaximumMemoryCacheBytes"]);
         Assert.DoesNotContain("Cache:AllowedBeatmapHosts:0", mapped);
         Assert.DoesNotContain("Calculator:Code", mapped);
     }

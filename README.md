@@ -28,7 +28,7 @@ Operational endpoints:
 
 ## Caching And Concurrency
 
-Raw beatmaps are cached by SHA-256 in memory and under `CACHE_DIRECTORY/beatmaps`. Every downloaded object is verified against `beatmap_sha256` before it is decoded or persisted.
+Raw beatmaps are cached by SHA-256 in the shared process memory cache. Disk caching is disabled by default; when enabled, entries are stored under `CACHE_DIRECTORY/beatmaps`. Every downloaded object is verified against `beatmap_sha256` before it is decoded or persisted.
 
 The difficulty cache identity includes:
 
@@ -58,7 +58,8 @@ Application settings use explicit uppercase environment variables with single un
 | `MAXIMUM_CONCURRENT_CALCULATIONS` | CPU calculation limit; `0` uses the logical processor count |
 | `CALCULATION_QUEUE_TIMEOUT_MILLISECONDS` | Time to wait for calculation capacity; `0` returns `429` immediately |
 | `CACHE_DIRECTORY` | Content-addressed beatmap cache directory |
-| `CACHE_MEMORY_SIZE_BYTES` | Total process memory cache size |
+| `CACHE_DISK_ENABLED` | Persist raw beatmaps on disk; defaults to `false` |
+| `CACHE_MAXIMUM_MEMORY_CACHE_BYTES` | Shared process memory cache size for beatmaps and difficulty attributes; defaults to 128 MiB |
 | `CACHE_MAXIMUM_BEATMAP_BYTES` | Maximum size of one beatmap |
 | `CACHE_MAXIMUM_DISK_BYTES` | Disk cache limit; LRU entries are removed to 90% after the limit is crossed |
 | `CACHE_MAXIMUM_CONCURRENT_DOWNLOADS` | Maximum concurrent beatmap downloads |

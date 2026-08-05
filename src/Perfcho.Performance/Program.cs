@@ -24,7 +24,7 @@ builder.Services.Configure<FormOptions>(options =>
     options.ValueLengthLimit = 512 * 1024;
     options.MultipartHeadersLengthLimit = 8 * 1024;
 });
-builder.Services.AddMemoryCache(options => options.SizeLimit = cacheOptions.MemorySizeBytes);
+builder.Services.AddMemoryCache(options => options.SizeLimit = cacheOptions.MaximumMemoryCacheBytes);
 
 if (!string.IsNullOrWhiteSpace(cacheOptions.RedisConnectionString))
 {

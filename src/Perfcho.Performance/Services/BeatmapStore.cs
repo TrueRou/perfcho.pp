@@ -36,7 +36,8 @@ public sealed class BeatmapStore
             ? this.options.Directory
             : Path.Combine(environment.ContentRootPath, this.options.Directory);
         beatmapDirectory = Path.Combine(root, "beatmaps");
-        Directory.CreateDirectory(beatmapDirectory);
+        if (this.options.DiskCacheEnabled)
+            Directory.CreateDirectory(beatmapDirectory);
     }
 
     public async Task<byte[]> GetAsync(string sha256, Uri source, CancellationToken cancellationToken)
@@ -67,7 +68,9 @@ public sealed class BeatmapStore
     private async Task<byte[]> LoadAsync(string sha256, Uri source)
     {
         string path = Path.Combine(beatmapDirectory, $"{sha256}.osu");
-        byte[]? local = await ReadLocalAsync(path, sha256).ConfigureAwait(false);
+        byte[]? local = options.DiskCacheEnabled
+            ? await ReadLocalAsync(path, sha256).ConfigureAwait(false)
+            : null;
         if (local is not null)
             return local;
 
@@ -76,7 +79,8 @@ public sealed class BeatmapStore
         if (!string.Equals(actual, sha256, StringComparison.Ordinal))
             throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "beatmap_digest_mismatch", "Beatmap content does not match beatmap_sha256.");
 
-        await WriteLocalAsync(path, downloaded).ConfigureAwait(false);
+        if (options.DiskCacheEnabled)
+            await WriteLocalAsync(path, downloaded).ConfigureAwait(false);
         return downloaded;
     }
 
