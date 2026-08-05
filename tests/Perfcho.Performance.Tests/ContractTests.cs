@@ -36,8 +36,7 @@ public sealed class ContractTests
             name => environment.GetValueOrDefault(name));
 
         Assert.Equal("redis.test:6379", mapped["Cache:RedisConnectionString"]);
-        Assert.Equal("s3.test", mapped["Cache:AllowedBeatmapHosts:0"]);
-        Assert.Equal("minio.test", mapped["Cache:AllowedBeatmapHosts:1"]);
+        Assert.DoesNotContain("Cache:AllowedBeatmapHosts:0", mapped);
         Assert.DoesNotContain("Calculator:Code", mapped);
     }
 
@@ -275,7 +274,7 @@ public sealed class ContractTests
             difficulty_formula_id = Guid.NewGuid(),
             difficulty_formula_code = "official-difficulty",
             difficulty_release_id = Guid.NewGuid(),
-            difficulty_release_version = "2026.07.1-difficulty",
+            difficulty_release_version = "2026.07.1",
             difficulty_release_configuration = new { },
             input_digest = new string('1', 64),
             beatmap_revision_id = 1,

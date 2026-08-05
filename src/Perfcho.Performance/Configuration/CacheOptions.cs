@@ -11,7 +11,6 @@ public sealed class CacheOptions
     public int MaximumConcurrentBeatmapDownloads { get; init; } = 16;
     public int BeatmapDownloadTimeoutSeconds { get; init; } = 15;
     public int DifficultyTtlHours { get; init; } = 24 * 30;
-    public string[] AllowedBeatmapHosts { get; init; } = [];
     public string? RedisConnectionString { get; init; }
     public string RedisInstanceName { get; init; } = "perfcho-pp:";
 
@@ -26,7 +25,5 @@ public sealed class CacheOptions
         {
             throw new InvalidOperationException("Cache limits must be positive and usable.");
         }
-        if (options.AllowedBeatmapHosts.Any(host => string.IsNullOrWhiteSpace(host) || Uri.CheckHostName(host) == UriHostNameType.Unknown))
-            throw new InvalidOperationException("Allowed beatmap hosts must contain exact valid host names.");
     }
 }

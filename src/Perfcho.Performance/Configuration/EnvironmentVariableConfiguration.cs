@@ -45,14 +45,6 @@ public static class EnvironmentVariableConfiguration
                 values[configurationKey] = value;
         }
 
-        string? allowedHosts = read("BEATMAP_ALLOWED_HOSTS");
-        if (allowedHosts is not null)
-        {
-            string[] hosts = allowedHosts.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            for (int index = 0; index < hosts.Length; index++)
-                values[$"Cache:AllowedBeatmapHosts:{index}"] = hosts[index];
-        }
-
         return values;
     }
 }

@@ -54,7 +54,7 @@ Application settings use explicit uppercase environment variables with single un
 | `FORMULA_CODE` | Performance formula code; defaults to `official` |
 | `RELEASE_VERSION` | Performance release version; defaults to `2026.07.1` |
 | `DIFFICULTY_FORMULA_CODE` | Difficulty formula code; defaults to `official-difficulty` |
-| `DIFFICULTY_RELEASE_VERSION` | Difficulty release version; defaults to `2026.07.1-difficulty` |
+| `DIFFICULTY_RELEASE_VERSION` | Difficulty release version; defaults to `2026.07.1` |
 | `MAXIMUM_CONCURRENT_CALCULATIONS` | CPU calculation limit; `0` uses the logical processor count |
 | `CALCULATION_QUEUE_TIMEOUT_MILLISECONDS` | Time to wait for calculation capacity; `0` returns `429` immediately |
 | `CACHE_DIRECTORY` | Content-addressed beatmap cache directory |
@@ -64,13 +64,12 @@ Application settings use explicit uppercase environment variables with single un
 | `CACHE_MAXIMUM_CONCURRENT_DOWNLOADS` | Maximum concurrent beatmap downloads |
 | `BEATMAP_DOWNLOAD_TIMEOUT_SECONDS` | Timeout covering beatmap headers and response body |
 | `DIFFICULTY_CACHE_TTL_HOURS` | Difficulty cache lifetime |
-| `BEATMAP_ALLOWED_HOSTS` | Optional comma-separated exact host allowlist for beatmap URLs |
 | `REDIS_CONNECTION_STRING` | Optional Redis connection string |
 | `REDIS_INSTANCE_NAME` | Redis key prefix |
 
 Release identity is validated by calculator, formula, and release version. Release configuration remains part of the calculation input and cache identity.
 
-The service does not follow redirects from `beatmap_url`. Production deployments should set `BEATMAP_ALLOWED_HOSTS` and expose the calculator only on an internal network accessible by perfcho workers.
+The service does not follow redirects from `beatmap_url`. Production deployments should expose the calculator only on an internal network accessible by perfcho workers.
 
 ## Local Development
 
@@ -93,7 +92,5 @@ REDIS_CONNECTION_STRING=127.0.0.1:6379 \
 
 ```bash
 docker build -t perfcho-pp .
-docker run --rm -p 6001:6001 \
-  -e BEATMAP_ALLOWED_HOSTS=minio.internal \
-  perfcho-pp
+docker run --rm -p 6001:6001 perfcho-pp
 ```

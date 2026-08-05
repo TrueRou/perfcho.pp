@@ -9,7 +9,7 @@ namespace Perfcho.Performance.Services;
 
 public sealed record ValidatedMetadata(Uri BeatmapUri, double Accuracy, bool IsLegacyScore);
 
-public sealed class MetadataValidator(IOptions<CalculatorOptions> configured, IOptions<CacheOptions> cacheConfigured)
+public sealed class MetadataValidator(IOptions<CalculatorOptions> configured)
 {
     private static readonly Regex modAcronym = new("^[A-Z0-9]{1,8}$", RegexOptions.CultureInvariant);
     private static readonly HashSet<string> rulesets = new(CalculatorOptions.SupportedRulesets, StringComparer.Ordinal);
@@ -18,7 +18,6 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured, IO
     private static readonly HashSet<string> outcomes = ["abandoned", "failed", "passed"];
 
     private readonly CalculatorOptions options = configured.Value;
-    private readonly CacheOptions cacheOptions = cacheConfigured.Value;
 
     public ValidatedMetadata Validate(PerformanceMetadata metadata)
     {
@@ -56,12 +55,6 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured, IO
         {
             Invalid("beatmap_url must be an absolute HTTP(S) URL without user information.");
         }
-        if (cacheOptions.AllowedBeatmapHosts.Length > 0 &&
-            !cacheOptions.AllowedBeatmapHosts.Contains(beatmapUri!.IdnHost, StringComparer.OrdinalIgnoreCase))
-        {
-            Invalid("beatmap_url host is not allowed by this deployment.");
-        }
-
         ValidateConfigurations(metadata);
         ValidateMods(metadata.Mods);
         double accuracy = ValidateScore(metadata.Score);
