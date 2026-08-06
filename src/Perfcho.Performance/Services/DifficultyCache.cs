@@ -58,7 +58,13 @@ public sealed class DifficultyCache
         {
             try
             {
-                return Materialize(cached, attributesType, mods);
+                DifficultyAttributes attributes = Materialize(cached, attributesType, mods);
+                logger.LogInformation(
+                    "Difficulty cache hit in local memory. CacheKey={CacheKey}, AttributesType={AttributesType}, PayloadLength={PayloadLength}.",
+                    cacheKey,
+                    attributesType.FullName,
+                    cached.Length);
+                return attributes;
             }
             catch (JsonException exception)
             {
@@ -72,6 +78,10 @@ public sealed class DifficultyCache
             _ => new Lazy<Task<string>>(
                 () => LoadOrCreateAsync(cacheKey, attributesType, factory),
                 LazyThreadSafetyMode.ExecutionAndPublication));
+        logger.LogInformation(
+            "Difficulty was not found in local memory; loading, calculating, or joining an in-flight request. CacheKey={CacheKey}, AttributesType={AttributesType}.",
+            cacheKey,
+            attributesType.FullName);
         Task<string> task = lazy.Value;
         _ = task.ContinueWith(
             _ => pending.TryRemove(new KeyValuePair<string, Lazy<Task<string>>>(cacheKey, lazy)),
@@ -94,6 +104,11 @@ public sealed class DifficultyCache
                 {
                     _ = Materialize(distributed, attributesType, []);
                     StoreMemory(cacheKey, distributed);
+                    logger.LogInformation(
+                        "Difficulty cache hit in distributed cache. CacheKey={CacheKey}, AttributesType={AttributesType}, PayloadLength={PayloadLength}.",
+                        cacheKey,
+                        attributesType.FullName,
+                        distributed.Length);
                     return distributed;
                 }
                 catch (JsonException exception)
@@ -108,8 +123,21 @@ public sealed class DifficultyCache
             logger.LogWarning(exception, "Difficulty distributed-cache read failed; calculating locally.");
         }
 
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        logger.LogInformation(
+            "Calculating difficulty after cache miss. CacheKey={CacheKey}, AttributesType={AttributesType}.",
+            cacheKey,
+            attributesType.FullName);
         DifficultyAttributes attributes = await concurrencyLimiter.RunAsync(factory).ConfigureAwait(false);
         string payload = JsonSerializer.Serialize(attributes, attributes.GetType(), serializerOptions);
+        logger.LogInformation(
+            "Difficulty calculation finished. CacheKey={CacheKey}, RuntimeType={RuntimeType}, StarRating={StarRating:R}, MaxCombo={MaxCombo}, PayloadLength={PayloadLength}, ElapsedMilliseconds={ElapsedMilliseconds}.",
+            cacheKey,
+            attributes.GetType().FullName,
+            attributes.StarRating,
+            attributes.MaxCombo,
+            payload.Length,
+            stopwatch.ElapsedMilliseconds);
         StoreMemory(cacheKey, payload);
 
         try
@@ -118,6 +146,10 @@ public sealed class DifficultyCache
                 cacheKey,
                 payload,
                 new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl }).ConfigureAwait(false);
+            logger.LogInformation(
+                "Difficulty cache entry stored in distributed cache. CacheKey={CacheKey}, TtlHours={TtlHours}.",
+                cacheKey,
+                ttl.TotalHours);
         }
         catch (Exception exception)
         {

@@ -44,7 +44,19 @@ public sealed class BeatmapStore
     {
         string memoryKey = $"beatmap:{sha256}";
         if (memoryCache.TryGetValue(memoryKey, out byte[]? cached) && cached is not null)
+        {
+            logger.LogInformation(
+                "Beatmap cache hit in local memory. Sha256={BeatmapSha256}, Source={BeatmapSource}, ByteCount={ByteCount}.",
+                sha256,
+                source,
+                cached.LongLength);
             return cached;
+        }
+
+        logger.LogInformation(
+            "Beatmap was not found in local memory; loading, downloading, or joining an in-flight request. Sha256={BeatmapSha256}, Source={BeatmapSource}.",
+            sha256,
+            source);
 
         Lazy<Task<byte[]>> lazy = pending.GetOrAdd(
             sha256,
@@ -57,6 +69,11 @@ public sealed class BeatmapStore
             TaskScheduler.Default);
 
         byte[] bytes = await task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        logger.LogInformation(
+            "Beatmap content is ready. Sha256={BeatmapSha256}, Source={BeatmapSource}, ByteCount={ByteCount}.",
+            sha256,
+            source,
+            bytes.LongLength);
         memoryCache.Set(memoryKey, bytes, new MemoryCacheEntryOptions
         {
             Size = bytes.LongLength,
@@ -72,10 +89,28 @@ public sealed class BeatmapStore
             ? await ReadLocalAsync(path, sha256).ConfigureAwait(false)
             : null;
         if (local is not null)
+        {
+            logger.LogInformation(
+                "Beatmap disk cache hit. Sha256={BeatmapSha256}, Path={CachePath}, ByteCount={ByteCount}.",
+                sha256,
+                path,
+                local.LongLength);
             return local;
+        }
 
+        logger.LogInformation(
+            "Beatmap cache miss. Downloading source. Sha256={BeatmapSha256}, Source={BeatmapSource}, DiskCacheEnabled={DiskCacheEnabled}.",
+            sha256,
+            source,
+            options.DiskCacheEnabled);
         byte[] downloaded = await DownloadAsync(source).ConfigureAwait(false);
         string actual = Convert.ToHexString(SHA256.HashData(downloaded)).ToLowerInvariant();
+        logger.LogInformation(
+            "Beatmap download completed. Source={BeatmapSource}, ExpectedSha256={ExpectedSha256}, ActualSha256={ActualSha256}, ByteCount={ByteCount}.",
+            source,
+            sha256,
+            actual,
+            downloaded.LongLength);
         if (!string.Equals(actual, sha256, StringComparison.Ordinal))
             throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "beatmap_digest_mismatch", "Beatmap content does not match beatmap_sha256.");
 
@@ -125,9 +160,18 @@ public sealed class BeatmapStore
             await downloadSemaphore.WaitAsync(timeout.Token).ConfigureAwait(false);
             entered = true;
             using HttpRequestMessage request = new(HttpMethod.Get, source);
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            logger.LogInformation("Sending beatmap download request. Source={BeatmapSource}.", source);
             using HttpResponseMessage response = await httpClientFactory.CreateClient(HttpClientName)
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
                 .ConfigureAwait(false);
+            logger.LogInformation(
+                "Beatmap download response received. Source={BeatmapSource}, StatusCode={StatusCode}, ContentLength={ContentLength}, ContentType={ContentType}, ElapsedMilliseconds={ElapsedMilliseconds}.",
+                source,
+                (int)response.StatusCode,
+                response.Content.Headers.ContentLength,
+                response.Content.Headers.ContentType?.ToString(),
+                stopwatch.ElapsedMilliseconds);
 
             if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
                 throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "beatmap_not_found", "Beatmap object does not exist.");
@@ -151,6 +195,11 @@ public sealed class BeatmapStore
 
             if (output.Length == 0)
                 throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "beatmap_empty", "Beatmap object is empty.");
+            logger.LogInformation(
+                "Beatmap response body read. Source={BeatmapSource}, ByteCount={ByteCount}, ElapsedMilliseconds={ElapsedMilliseconds}.",
+                source,
+                output.Length,
+                stopwatch.ElapsedMilliseconds);
             return output.ToArray();
         }
         catch (CalculatorException)

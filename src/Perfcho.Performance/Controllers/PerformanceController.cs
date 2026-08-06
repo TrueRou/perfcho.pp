@@ -31,11 +31,22 @@ public sealed class PerformanceController(
     [Produces("application/json")]
     public async Task<IActionResult> Calculate(CancellationToken cancellationToken)
     {
+        logger.LogInformation(
+            "Received performance calculation request. TraceIdentifier={TraceIdentifier}, ContentType={ContentType}, ContentLength={ContentLength}.",
+            HttpContext.TraceIdentifier,
+            Request.ContentType,
+            Request.ContentLength);
         PerformanceMetadata? metadata = null;
         try
         {
             metadata = await ReadMetadataAsync(cancellationToken).ConfigureAwait(false);
             CalculationResult result = await calculationService.CalculateAsync(metadata, cancellationToken).ConfigureAwait(false);
+            logger.LogInformation(
+                "Returning successful performance calculation response. JobId={JobId}, StarRating={StarRating:R}, MaxCombo={MaxCombo}, PerformancePoints={PerformancePoints:R}.",
+                metadata.JobId,
+                result.StarRating,
+                result.MaxCombo,
+                result.PerformancePoints);
             CalculatorOptions options = configured.Value;
             return new JsonResult(new
             {
@@ -62,7 +73,7 @@ public sealed class PerformanceController(
             if (exception.StatusCode >= 500)
                 logger.LogError(exception, "Calculation failed for job {JobId}.", metadata?.JobId);
             else
-                logger.LogInformation("Calculation rejected for job {JobId}: {Code}. Reason: {Reason}", metadata?.JobId, exception.Code, exception.Message);
+                logger.LogInformation(exception, "Calculation rejected for job {JobId}: {Code}. Reason: {Reason}", metadata?.JobId, exception.Code, exception.Message);
 
             if (exception.StatusCode == StatusCodes.Status429TooManyRequests)
                 Response.Headers.RetryAfter = "1";
@@ -120,6 +131,11 @@ public sealed class PerformanceController(
             await using Stream stream = file.OpenReadStream();
             using var reader = new StreamReader(stream, new UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: false);
             string json = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            logger.LogInformation(
+                "Received raw calculation metadata. TraceIdentifier={TraceIdentifier}, MetadataLength={MetadataLength}, Metadata={Metadata}.",
+                HttpContext.TraceIdentifier,
+                json.Length,
+                json);
             return JsonConvert.DeserializeObject<PerformanceMetadata>(json, serializerSettings) ??
                    throw new JsonSerializationException("Metadata must be a JSON object.");
         }

@@ -1,7 +1,8 @@
-using System.Globalization;
 using System.Diagnostics;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Newtonsoft.Json;
 using osu.Game.Beatmaps;
 using osu.Game.Database;
 using osu.Game.Rulesets;
@@ -25,19 +26,69 @@ public sealed class PerformanceCalculationService(
     MetadataValidator metadataValidator,
     BeatmapStore beatmapStore,
     DifficultyCache difficultyCache,
-    CalculationConcurrencyLimiter concurrencyLimiter)
+    CalculationConcurrencyLimiter concurrencyLimiter,
+    ILogger<PerformanceCalculationService> logger)
 {
     public async Task<CalculationResult> CalculateAsync(PerformanceMetadata metadata, CancellationToken cancellationToken)
     {
+        using IDisposable? scope = logger.BeginScope(new Dictionary<string, object?>
+        {
+            ["JobId"] = metadata.JobId,
+            ["ScoreId"] = metadata.ScoreId,
+            ["BeatmapRevisionId"] = metadata.BeatmapRevisionId,
+            ["Ruleset"] = metadata.Ruleset,
+            ["Variant"] = metadata.Variant
+        });
+        var totalStopwatch = Stopwatch.StartNew();
+        logger.LogInformation(
+            "Starting performance calculation. InputDigest={InputDigest}, BeatmapSha256={BeatmapSha256}, BeatmapUrl={BeatmapUrl}, " +
+            "Formula={FormulaCode}/{ReleaseVersion}, DifficultyFormula={DifficultyFormulaCode}/{DifficultyReleaseVersion}, " +
+            "ClientFamily={ClientFamily}, ModSetId={ModSetId}.",
+            metadata.InputDigest,
+            metadata.BeatmapSha256,
+            metadata.BeatmapUrl,
+            metadata.FormulaCode,
+            metadata.ReleaseVersion,
+            metadata.DifficultyFormulaCode,
+            metadata.DifficultyReleaseVersion,
+            metadata.ClientFamily,
+            metadata.ModSetId);
+        logger.LogInformation("Full calculation metadata: {CalculationMetadata}.", JsonConvert.SerializeObject(metadata));
+
         ValidatedMetadata validated = metadataValidator.Validate(metadata);
+        logger.LogInformation(
+            "Metadata validated. Accuracy={Accuracy:R}, IsLegacyScore={IsLegacyScore}, BeatmapUri={BeatmapUri}.",
+            validated.Accuracy,
+            validated.IsLegacyScore,
+            validated.BeatmapUri);
+
         Ruleset ruleset = RulesetFactory.Create(metadata.Ruleset!);
         ResolvedMods resolvedMods = ModResolver.Resolve(ruleset, metadata, validated.IsLegacyScore);
+        logger.LogInformation(
+            "Ruleset and mods resolved. RulesetName={RulesetName}, RulesetShortName={RulesetShortName}, Mods={CanonicalMods}.",
+            ruleset.Description,
+            ruleset.ShortName,
+            resolvedMods.CanonicalJson);
+
+        var stageStopwatch = Stopwatch.StartNew();
         byte[] beatmapBytes = await beatmapStore.GetAsync(metadata.BeatmapSha256!, validated.BeatmapUri, cancellationToken).ConfigureAwait(false);
+        logger.LogInformation(
+            "Beatmap content loaded. ByteCount={BeatmapByteCount}, ElapsedMilliseconds={ElapsedMilliseconds}.",
+            beatmapBytes.LongLength,
+            stageStopwatch.ElapsedMilliseconds);
 
         ProcessorWorkingBeatmap workingBeatmap;
+        stageStopwatch.Restart();
         try
         {
             workingBeatmap = await concurrencyLimiter.RunAsync(() => new ProcessorWorkingBeatmap(beatmapBytes)).ConfigureAwait(false);
+            logger.LogInformation(
+                "Beatmap decoded. OnlineBeatmapId={OnlineBeatmapId}, OnlineBeatmapSetId={OnlineBeatmapSetId}, " +
+                "RulesetOnlineId={BeatmapRulesetOnlineId}, ElapsedMilliseconds={ElapsedMilliseconds}.",
+                workingBeatmap.BeatmapInfo.OnlineID,
+                workingBeatmap.BeatmapInfo.BeatmapSet?.OnlineID,
+                workingBeatmap.BeatmapInfo.Ruleset.OnlineID,
+                stageStopwatch.ElapsedMilliseconds);
         }
         catch (CalculatorException)
         {
@@ -45,13 +96,23 @@ public sealed class PerformanceCalculationService(
         }
         catch (Exception exception)
         {
+            logger.LogError(exception, "Beatmap decoding failed after {ElapsedMilliseconds} ms.", stageStopwatch.ElapsedMilliseconds);
             throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "beatmap_invalid", "Beatmap content cannot be decoded.", exception);
         }
 
         DifficultyCalculator calculator = ruleset.CreateDifficultyCalculator(workingBeatmap);
         string difficultyKey = BuildDifficultyKey(metadata, calculator.Version, resolvedMods.CanonicalJson);
         Type attributesType = GetDifficultyAttributesType(metadata.Ruleset!);
+        logger.LogInformation(
+            "Difficulty calculation prepared. CalculatorType={CalculatorType}, CalculatorVersion={CalculatorVersion}, " +
+            "AttributesType={AttributesType}, DifficultyKey={DifficultyKey}.",
+            calculator.GetType().FullName,
+            calculator.Version,
+            attributesType.FullName,
+            difficultyKey);
+
         DifficultyAttributes difficulty;
+        stageStopwatch.Restart();
         try
         {
             difficulty = await difficultyCache.GetOrCreateAsync(
@@ -67,17 +128,68 @@ public sealed class PerformanceCalculationService(
         }
         catch (Exception exception)
         {
+            logger.LogError(exception, "Difficulty calculation failed after {ElapsedMilliseconds} ms. DifficultyKey={DifficultyKey}.", stageStopwatch.ElapsedMilliseconds, difficultyKey);
             throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "difficulty_calculation_failed", "Beatmap difficulty calculation failed for the supplied ruleset and mods.", exception);
         }
 
+        IReadOnlyDictionary<string, object?> difficultyBreakdown = BuildDifficultyBreakdown(difficulty);
+        logger.LogInformation(
+            "Difficulty calculated. AttributeRuntimeType={AttributeRuntimeType}, StarRating={StarRating:R}, MaxCombo={MaxCombo}, " +
+            "Breakdown={DifficultyBreakdown}, ElapsedMilliseconds={ElapsedMilliseconds}.",
+            difficulty.GetType().FullName,
+            difficulty.StarRating,
+            difficulty.MaxCombo,
+            JsonConvert.SerializeObject(difficultyBreakdown),
+            stageStopwatch.ElapsedMilliseconds);
+
         ScoreInfo score = CreateScore(metadata, validated, ruleset, workingBeatmap.BeatmapInfo, resolvedMods.Values);
+        logger.LogInformation(
+            "Score created. Accuracy={Accuracy:R}, MaxCombo={MaxCombo}, TotalScore={TotalScore}, LegacyTotalScore={LegacyTotalScore}, " +
+            "TotalScoreVersion={TotalScoreVersion}, IsLegacyScore={IsLegacyScore}, Passed={Passed}, Statistics={Statistics}.",
+            score.Accuracy,
+            score.MaxCombo,
+            score.TotalScore,
+            score.LegacyTotalScore,
+            score.TotalScoreVersion,
+            score.IsLegacyScore,
+            score.Passed,
+            FormatStatistics(score.Statistics));
+
         PopulateMaximumStatistics(score, workingBeatmap, difficulty, validated.IsLegacyScore, metadata.Score!.Hits!);
+        logger.LogInformation("Maximum score statistics populated. MaximumStatistics={MaximumStatistics}.", FormatStatistics(score.MaximumStatistics));
+
         if (validated.IsLegacyScore)
+        {
+            stageStopwatch.Restart();
+            logger.LogInformation(
+                "Starting classic score migration. PreMigrationTotalScore={TotalScore}, PreMigrationLegacyTotalScore={LegacyTotalScore}, " +
+                "PreMigrationAccuracy={Accuracy:R}, PreMigrationStatistics={Statistics}, PreMigrationMaximumStatistics={MaximumStatistics}.",
+                score.TotalScore,
+                score.LegacyTotalScore,
+                score.Accuracy,
+                FormatStatistics(score.Statistics),
+                FormatStatistics(score.MaximumStatistics));
             await MigrateLegacyScoreAsync(score, workingBeatmap).ConfigureAwait(false);
+            logger.LogInformation(
+                "Classic score migration completed. TotalScore={TotalScore}, LegacyTotalScore={LegacyTotalScore}, Accuracy={Accuracy:R}, " +
+                "MaxCombo={MaxCombo}, TotalScoreVersion={TotalScoreVersion}, Statistics={Statistics}, MaximumStatistics={MaximumStatistics}, " +
+                "ElapsedMilliseconds={ElapsedMilliseconds}.",
+                score.TotalScore,
+                score.LegacyTotalScore,
+                score.Accuracy,
+                score.MaxCombo,
+                score.TotalScoreVersion,
+                FormatStatistics(score.Statistics),
+                FormatStatistics(score.MaximumStatistics),
+                stageStopwatch.ElapsedMilliseconds);
+        }
 
         PerformanceCalculator performanceCalculator = ruleset.CreatePerformanceCalculator() ??
             throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "performance_unsupported", "The requested ruleset has no performance calculator.");
+        logger.LogInformation("Performance calculation prepared. CalculatorType={CalculatorType}.", performanceCalculator.GetType().FullName);
+
         PerformanceAttributes performance;
+        stageStopwatch.Restart();
         try
         {
             performance = await concurrencyLimiter.RunAsync(
@@ -89,16 +201,39 @@ public sealed class PerformanceCalculationService(
         }
         catch (Exception exception)
         {
+            logger.LogError(
+                exception,
+                "Performance calculation failed after {ElapsedMilliseconds} ms. Score={ScoreSnapshot}, Difficulty={DifficultySnapshot}.",
+                stageStopwatch.ElapsedMilliseconds,
+                FormatScore(score),
+                FormatDifficulty(difficulty, difficultyBreakdown));
             throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "performance_calculation_failed", "Performance calculation failed for the supplied score statistics.", exception);
         }
 
+        IReadOnlyDictionary<string, object?> performanceBreakdown = BuildPerformanceBreakdown(performance);
+        logger.LogInformation(
+            "Performance calculated. AttributeRuntimeType={AttributeRuntimeType}, TotalPp={TotalPp:R}, Breakdown={PerformanceBreakdown}, " +
+            "ElapsedMilliseconds={ElapsedMilliseconds}.",
+            performance.GetType().FullName,
+            performance.Total,
+            JsonConvert.SerializeObject(performanceBreakdown),
+            stageStopwatch.ElapsedMilliseconds);
+
         ValidateOutput(difficulty, performance);
-        return new CalculationResult(
+        var result = new CalculationResult(
             difficulty.StarRating,
             difficulty.MaxCombo,
-            BuildDifficultyBreakdown(difficulty),
+            difficultyBreakdown,
             performance.Total,
-            BuildPerformanceBreakdown(performance));
+            performanceBreakdown);
+        logger.LogInformation(
+            "Performance calculation completed. StarRating={StarRating:R}, MaxCombo={MaxCombo}, PerformancePoints={PerformancePoints:R}, " +
+            "TotalElapsedMilliseconds={TotalElapsedMilliseconds}.",
+            result.StarRating,
+            result.MaxCombo,
+            result.PerformancePoints,
+            totalStopwatch.ElapsedMilliseconds);
+        return result;
     }
 
     private static ScoreInfo CreateScore(
@@ -272,6 +407,35 @@ public sealed class PerformanceCalculationService(
         }
         return result;
     }
+
+    private static string FormatStatistics(IReadOnlyDictionary<HitResult, int> statistics) =>
+        JsonConvert.SerializeObject(statistics
+            .OrderBy(pair => pair.Key.ToString(), StringComparer.Ordinal)
+            .ToDictionary(pair => pair.Key.ToString(), pair => pair.Value, StringComparer.Ordinal));
+
+    private static string FormatScore(ScoreInfo score) => JsonConvert.SerializeObject(new
+    {
+        score.Accuracy,
+        score.MaxCombo,
+        score.TotalScore,
+        score.LegacyTotalScore,
+        score.IsLegacyScore,
+        score.TotalScoreVersion,
+        score.Passed,
+        statistics = JsonConvert.DeserializeObject(FormatStatistics(score.Statistics)),
+        maximum_statistics = JsonConvert.DeserializeObject(FormatStatistics(score.MaximumStatistics)),
+        mods = score.Mods.Select(mod => mod.Acronym).ToArray()
+    });
+
+    private static string FormatDifficulty(
+        DifficultyAttributes difficulty,
+        IReadOnlyDictionary<string, object?> breakdown) => JsonConvert.SerializeObject(new
+        {
+            runtime_type = difficulty.GetType().FullName,
+            difficulty.StarRating,
+            difficulty.MaxCombo,
+            breakdown
+        });
 
     private static void ValidateOutput(DifficultyAttributes difficulty, PerformanceAttributes performance)
     {
