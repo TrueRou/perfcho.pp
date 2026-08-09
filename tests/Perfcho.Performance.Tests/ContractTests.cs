@@ -267,7 +267,6 @@ public sealed class ContractTests
         return JObject.FromObject(new
         {
             schema_version = 1,
-            job_id = Guid.NewGuid(),
             score_id = 1,
             formula_id = Guid.NewGuid(),
             formula_code = "official",

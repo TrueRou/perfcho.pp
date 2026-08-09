@@ -23,7 +23,7 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured)
     {
         if (metadata.SchemaVersion != 1)
             Invalid("schema_version must be 1.");
-        if (metadata.JobId == Guid.Empty || metadata.FormulaId == Guid.Empty || metadata.ReleaseId == Guid.Empty ||
+        if (metadata.FormulaId == Guid.Empty || metadata.ReleaseId == Guid.Empty ||
             metadata.DifficultyFormulaId == Guid.Empty || metadata.DifficultyReleaseId == Guid.Empty)
         {
             Invalid("UUID fields must be non-empty UUIDs.");

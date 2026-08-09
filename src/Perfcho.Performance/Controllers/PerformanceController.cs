@@ -71,9 +71,9 @@ public sealed class PerformanceController(
         catch (CalculatorException exception)
         {
             if (exception.StatusCode >= 500)
-                logger.LogError(exception, "Calculation failed for job {JobId}.", metadata?.JobId);
+                logger.LogError(exception, "Calculation failed for score {ScoreId}.", metadata?.ScoreId);
             else
-                logger.LogInformation(exception, "Calculation rejected for job {JobId}: {Code}. Reason: {Reason}", metadata?.JobId, exception.Code, exception.Message);
+                logger.LogInformation("Calculation rejected for score {ScoreId}: {Code}. Reason: {Reason}", metadata?.ScoreId, exception.Code, exception.Message);
 
             if (exception.StatusCode == StatusCodes.Status429TooManyRequests)
                 Response.Headers.RetryAfter = "1";
@@ -91,7 +91,7 @@ public sealed class PerformanceController(
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Unhandled calculation failure for job {JobId}.", metadata?.JobId);
+            logger.LogError(exception, "Unhandled calculation failure for score {ScoreId}.", metadata?.ScoreId);
             return Problem(statusCode: StatusCodes.Status500InternalServerError, title: "Calculator failed unexpectedly.");
         }
     }

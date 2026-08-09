@@ -7,7 +7,6 @@ namespace Perfcho.Performance.Contracts;
 public sealed class PerformanceMetadata
 {
     [JsonProperty("schema_version", Required = Required.Always)] public int SchemaVersion { get; init; }
-    [JsonProperty("job_id", Required = Required.Always)] public Guid JobId { get; init; }
     [JsonProperty("score_id", Required = Required.Always)] public long ScoreId { get; init; }
     [JsonProperty("formula_id", Required = Required.Always)] public Guid FormulaId { get; init; }
     [JsonProperty("formula_code", Required = Required.Always)] public string? FormulaCode { get; init; }
