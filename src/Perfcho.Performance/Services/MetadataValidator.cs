@@ -13,7 +13,6 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured)
 {
     private static readonly Regex modAcronym = new("^[A-Z0-9]{1,8}$", RegexOptions.CultureInvariant);
     private static readonly HashSet<string> rulesets = new(CalculatorOptions.SupportedRulesets, StringComparer.Ordinal);
-    private static readonly HashSet<string> variants = ["vanilla", "relax", "autopilot"];
     private static readonly HashSet<string> clients = ["stable", "lazer", "web", "api"];
     private static readonly HashSet<string> outcomes = ["abandoned", "failed", "passed"];
 
@@ -28,7 +27,7 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured)
         {
             Invalid("UUID fields must be non-empty UUIDs.");
         }
-        if (metadata.ScoreId < 1 || metadata.BeatmapRevisionId < 1 || metadata.ModSetId < 1)
+        if (metadata.ScoreId < 1 || metadata.BeatmapRevisionId < 1)
             Invalid("Identifiers must be positive.");
 
         VerifyIdentity(metadata.Calculator, options.Code, "calculator");
@@ -37,18 +36,15 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured)
         VerifyIdentity(metadata.DifficultyFormulaCode, options.DifficultyFormulaCode, "difficulty_formula_code");
         VerifyIdentity(metadata.DifficultyReleaseVersion, options.DifficultyReleaseVersion, "difficulty_release_version");
 
-        if (!CalculatorOptions.IsDigest(metadata.InputDigest) || !CalculatorOptions.IsDigest(metadata.BeatmapSha256))
-            Invalid("input_digest and beatmap_sha256 must be lowercase SHA-256 hex strings.");
+        if (!CalculatorOptions.IsDigest(metadata.InputDigest) || !CalculatorOptions.IsDigest(metadata.BeatmapSha256) ||
+            !CalculatorOptions.IsDigest(metadata.ModsDigest))
+        {
+            Invalid("input_digest, beatmap_sha256, and mods_digest must be lowercase SHA-256 hex strings.");
+        }
         if (metadata.Ruleset is null || !rulesets.Contains(metadata.Ruleset))
             Invalid("ruleset is not supported.");
-        if (metadata.Variant is null || !variants.Contains(metadata.Variant))
-            Invalid("variant is not supported.");
         if (metadata.ClientFamily is null || !clients.Contains(metadata.ClientFamily))
             Invalid("client_family is not supported.");
-        if (metadata.Variant == "relax" && metadata.Ruleset == "mania")
-            Invalid("mania does not support the relax variant.");
-        if (metadata.Variant == "autopilot" && metadata.Ruleset != "osu")
-            Invalid("autopilot is only supported by osu.");
 
         if (!Uri.TryCreate(metadata.BeatmapUrl, UriKind.Absolute, out Uri? beatmapUri) ||
             beatmapUri.Scheme is not ("http" or "https") || !string.IsNullOrEmpty(beatmapUri.UserInfo))
@@ -121,8 +117,6 @@ public sealed class MetadataValidator(IOptions<CalculatorOptions> configured)
                 Invalid("Mod acronyms must contain 1-8 uppercase ASCII letters or digits.");
             if (!seen.Add(mod.Acronym!))
                 Invalid($"Duplicate mod acronym: {mod.Acronym}.");
-            if (mod.Acronym is "RX" or "AP")
-                Invalid("Assistance mods must be represented by variant, not mods.");
             if (mod.Acronym is "AT" or "CN")
                 Invalid("Automatic-play mods cannot be used for submitted scores.");
             if (mod.Settings is not null && mod.Settings.Properties().Count() > 32)

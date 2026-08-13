@@ -284,8 +284,7 @@ public sealed class ContractTests
             beatmap_sha256 = beatmapDigest,
             beatmap_url = "https://beatmaps.test/map.osu?signature=secret",
             ruleset,
-            variant = "vanilla",
-            mod_set_id = 1,
+            mods_digest = new string('2', 64),
             mods = Array.Empty<object>(),
             client_family = "lazer",
             score = new

@@ -42,8 +42,7 @@ public sealed class PerformanceController(
             metadata = await ReadMetadataAsync(cancellationToken).ConfigureAwait(false);
             CalculationResult result = await calculationService.CalculateAsync(metadata, cancellationToken).ConfigureAwait(false);
             logger.LogInformation(
-                "Returning successful performance calculation response. JobId={JobId}, StarRating={StarRating:R}, MaxCombo={MaxCombo}, PerformancePoints={PerformancePoints:R}.",
-                metadata.JobId,
+                "Returning successful performance calculation response. StarRating={StarRating:R}, MaxCombo={MaxCombo}, PerformancePoints={PerformancePoints:R}.",
                 result.StarRating,
                 result.MaxCombo,
                 result.PerformancePoints);

@@ -24,8 +24,7 @@ public sealed class PerformanceMetadata
     [JsonProperty("beatmap_sha256", Required = Required.Always)] public string? BeatmapSha256 { get; init; }
     [JsonProperty("beatmap_url", Required = Required.Always)] public string? BeatmapUrl { get; init; }
     [JsonProperty("ruleset", Required = Required.Always)] public string? Ruleset { get; init; }
-    [JsonProperty("variant", Required = Required.Always)] public string? Variant { get; init; }
-    [JsonProperty("mod_set_id", Required = Required.Always)] public long ModSetId { get; init; }
+    [JsonProperty("mods_digest", Required = Required.Always)] public string? ModsDigest { get; init; }
     [JsonProperty("mods", Required = Required.Always)] public List<CanonicalMod>? Mods { get; init; }
     [JsonProperty("client_family", Required = Required.Always)] public string? ClientFamily { get; init; }
     [JsonProperty("score", Required = Required.Always)] public ScoreInput? Score { get; init; }

@@ -28,11 +28,6 @@ public static class ModResolver
         foreach (CanonicalMod input in metadata.Mods!)
             mods.Add(ResolveOne(ruleset, input, settingsSerializer));
 
-        if (metadata.Variant == "relax")
-            mods.Add(CreateRequired(ruleset, "RX", "The relax variant is not supported by this ruleset."));
-        else if (metadata.Variant == "autopilot")
-            mods.Add(CreateRequired(ruleset, "AP", "The autopilot variant is not supported by this ruleset."));
-
         if (isLegacyScore && mods.All(mod => mod.Acronym != "CL"))
         {
             Mod? classic = ruleset.CreateModFromAcronym("CL");
@@ -105,12 +100,6 @@ public static class ModResolver
             throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "mod_seed_required", $"Mod {input.Acronym} requires an explicit seed for deterministic calculation.");
 
         return resolved;
-    }
-
-    private static Mod CreateRequired(Ruleset ruleset, string acronym, string error)
-    {
-        return ruleset.CreateModFromAcronym(acronym) ??
-               throw new CalculatorException(StatusCodes.Status422UnprocessableEntity, "unsupported_variant", error);
     }
 
     private static JObject ToCanonicalJson(Mod mod, JsonSerializer settingsSerializer)

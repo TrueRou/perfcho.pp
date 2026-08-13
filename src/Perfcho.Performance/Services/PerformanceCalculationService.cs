@@ -33,17 +33,15 @@ public sealed class PerformanceCalculationService(
     {
         using IDisposable? scope = logger.BeginScope(new Dictionary<string, object?>
         {
-            ["JobId"] = metadata.JobId,
             ["ScoreId"] = metadata.ScoreId,
             ["BeatmapRevisionId"] = metadata.BeatmapRevisionId,
-            ["Ruleset"] = metadata.Ruleset,
-            ["Variant"] = metadata.Variant
+            ["Ruleset"] = metadata.Ruleset
         });
         var totalStopwatch = Stopwatch.StartNew();
         logger.LogInformation(
             "Starting performance calculation. InputDigest={InputDigest}, BeatmapSha256={BeatmapSha256}, BeatmapUrl={BeatmapUrl}, " +
             "Formula={FormulaCode}/{ReleaseVersion}, DifficultyFormula={DifficultyFormulaCode}/{DifficultyReleaseVersion}, " +
-            "ClientFamily={ClientFamily}, ModSetId={ModSetId}.",
+            "ClientFamily={ClientFamily}, ModsDigest={ModsDigest}.",
             metadata.InputDigest,
             metadata.BeatmapSha256,
             metadata.BeatmapUrl,
@@ -52,7 +50,7 @@ public sealed class PerformanceCalculationService(
             metadata.DifficultyFormulaCode,
             metadata.DifficultyReleaseVersion,
             metadata.ClientFamily,
-            metadata.ModSetId);
+            metadata.ModsDigest);
         logger.LogInformation("Full calculation metadata: {CalculationMetadata}.", JsonConvert.SerializeObject(metadata));
 
         ValidatedMetadata validated = metadataValidator.Validate(metadata);
@@ -330,7 +328,6 @@ public sealed class PerformanceCalculationService(
             metadata.DifficultyReleaseId,
             metadata.DifficultyReleaseVersion,
             metadata.Ruleset,
-            metadata.Variant,
             canonicalMods);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity))).ToLowerInvariant();
     }
